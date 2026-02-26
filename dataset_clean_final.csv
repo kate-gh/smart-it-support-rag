@@ -1,0 +1,40 @@
+Customer_Issue,Category,Subcategory,Difficulty,Suggested_Solution,Auto_Resolve,Create_Ticket,Priority,Environment
+printer not responding,Hardware,Printer,Easy,restart the printer and check the USB or network connection,Yes,No,Low,Office
+cannot connect to wi-fi,Network,WiFi,Easy,restart the router and verify the network password,Yes,No,Low,Office
+internet connection problem,Network,Internet,Easy,restart your router and check the network cables,Yes,No,Low,Office
+printer offline,Hardware,Printer,Medium,set the printer as default and reinstall the printer drivers,Yes,No,Medium,Office
+wifi not working,Network,WiFi,Easy,restart your router and reconnect to the network,Yes,No,Low,Office
+computer very slow,Software,Performance,Easy,close unnecessary programs and clear temporary files,Yes,No,Low,Office
+software installation failure,Software,Installation,Medium,run the installer as administrator and disable antivirus temporarily,Yes,No,Medium,Office
+unable to access email,Software,Email,Easy,verify your email credentials and server settings,Yes,No,Low,Office
+cannot login,Access,Authentication,Medium,reset your password using the password recovery option,Yes,No,Medium,Office
+forgot password,Access,Authentication,Easy,use the password reset link sent to your email,Yes,No,Low,Office
+blue screen error,Hardware,System,Hard,restart the computer and check for driver updates,No,Yes,High,Office
+password not accepted,Access,Authentication,Easy,verify keyboard language and reset the password,Yes,No,Low,Office
+unable to connect to wifi,Network,WiFi,Easy,forget the network and reconnect again,Yes,No,Low,Office
+cannot access mailbox,Software,Email,Medium,check internet connection and email server configuration,Yes,No,Medium,Office
+email not opening,Software,Email,Easy,restart the email application and verify account settings,Yes,No,Low,Office
+printer not printing,Hardware,Printer,Medium,check ink levels and reinstall printer drivers,Yes,No,Medium,Office
+slow system performance,Software,Performance,Medium,scan for malware and disable startup programs,Yes,No,Medium,Office
+system lagging,Software,Performance,Easy,free disk space and restart the computer,Yes,No,Low,Office
+vpn not connecting,Network,VPN,Medium,check internet connection and restart the VPN client,Yes,No,Medium,Remote
+remote desktop not working,Network,RemoteAccess,Medium,verify remote access permissions and network connectivity,No,Yes,High,Remote
+network drive not accessible,Network,SharedDrive,Medium,check network connection and remap the drive,Yes,No,Medium,Office
+application keeps crashing,Software,Application,Medium,update the application and restart the system,Yes,No,Medium,Office
+usb device not recognized,Hardware,USB,Easy,reconnect the device and install drivers,Yes,No,Low,Office
+cannot access shared folder,Network,Permissions,Medium,verify permissions and network connectivity,No,Yes,Medium,Office
+email sending failed,Software,Email,Medium,check SMTP configuration and internet connection,Yes,No,Medium,Office
+pc overheating,Hardware,System,Hard,clean air vents and check cooling system,No,Yes,High,Office
+system freeze,Hardware,System,Hard,restart the computer and check running processes,No,Yes,High,Office
+database connection error,Database,Connection,Hard,verify database server status and credentials,No,Yes,Critical,Server
+server not responding,Server,Availability,Hard,check server status and network connectivity,No,Yes,Critical,Server
+high cpu usage,Server,Performance,Medium,identify heavy processes and restart the system,No,Yes,High,Server
+disk space full,Server,Storage,Medium,delete unnecessary files and empty recycle bin,Yes,No,Medium,Server
+industrial software not launching,Industrial,Application,Hard,run software as administrator and check dependencies,No,Yes,High,Laboratory
+unable to access laboratory system,Industrial,Access,Hard,verify user permissions and network access,No,Yes,High,Laboratory
+data acquisition software error,Industrial,Acquisition,Hard,restart the application and check device connection,No,Yes,High,Laboratory
+measurement device not detected,Industrial,Hardware,Hard,verify USB or serial connection and drivers,No,Yes,High,Laboratory
+opc server connection lost,Industrial,OPC,Hard,restart OPC service and verify network connectivity,No,Yes,Critical,Laboratory
+sensor data not updating,Industrial,Sensor,Hard,check sensor connection and restart acquisition software,No,Yes,High,Laboratory
+automation script failed,Industrial,Automation,Hard,verify script parameters and system permissions,No,Yes,High,Laboratory
+unable to connect to production database,Database,Connection,Hard,check database service and credentials,No,Yes,Critical,Server
