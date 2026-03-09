@@ -7,10 +7,9 @@ from llm_openrouter import generate_answer
 import joblib
 import fasttext
 from intent_detector import detect_intent, AFFIRMATIVES, NEGATIVES
+from logger import log_ticket
 
-# ──────────────────────────────────────────
-#  CHARGEMENT MODÈLES
-# ──────────────────────────────────────────
+# CHARGEMENT MODÈLES
 print("Chargement language detector...")
 lang_model = fasttext.load_model("lid.176.bin")
 
@@ -21,10 +20,7 @@ def detect_language(text):
     lang_code  = prediction[0][0].replace("__label__", "")
     return lang_code
 
-
-# ──────────────────────────────────────────
-#  FILTRE BRUIT CLAVIER
-# ──────────────────────────────────────────
+# FILTRE BRUIT CLAVIER
 def is_understandable(text):
     t = text.strip().lower()
 
@@ -50,10 +46,8 @@ def is_understandable(text):
 
     return True
 
-
-# ──────────────────────────────────────────
 #  NETTOYAGE CONTEXTE RAG
-# ──────────────────────────────────────────
+
 def clean_context(text):
     text = re.sub(r'\btel_num\b', '', text)
     text = re.sub(r'\bacc_num\b', '', text)
@@ -68,9 +62,8 @@ def clean_context(text):
     return text.strip()
 
 
-# ──────────────────────────────────────────
 #  CHARGEMENT ML MODELS + RAG
-# ──────────────────────────────────────────
+
 difficulty_model = joblib.load("difficulty_model.pkl")
 priority_model   = joblib.load("priority_model.pkl")
 auto_model       = joblib.load("auto_resolve_model.pkl")
@@ -81,13 +74,11 @@ embedding_model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2")
 chroma_client = chromadb.PersistentClient(path="./vector_db")
 collection    = chroma_client.get_collection(name="it_support_knowledge")
 
-print("Assistant IT prêt ✅")
+print("Assistant IT prêt ")
 print("Tape 'exit' pour quitter.\n")
 
-
-# ──────────────────────────────────────────
 #  RÉPONSES VARIÉES
-# ──────────────────────────────────────────
+
 GREETINGS_FR = [
     "Bonjour 👋 Comment puis-je vous aider ?",
     "Bonjour ! Quel est votre problème informatique ?",
@@ -178,17 +169,15 @@ UNCLEAR_EN = [
 ]
 
 
-# ──────────────────────────────────────────
 #  ÉTAT DE LA CONVERSATION
-# ──────────────────────────────────────────
+
 last_bot_context     = None   # "asked_problem" | "gave_solution" | "waiting_problem" | None
 conversation_history = []     # historique pour le prompt RAG
 last_lang            = "fr"   # langue du dernier échange
 
 
-# ──────────────────────────────────────────
 #  BOUCLE PRINCIPALE
-# ──────────────────────────────────────────
+
 while True:
 
     question = input("👤 Vous : ").strip()
@@ -202,9 +191,8 @@ while True:
 
     q_normalized = question.lower().strip()
 
-    # ══════════════════════════════════════
     #  INTENT DETECTION D'ABORD
-    # ══════════════════════════════════════
+
     intent, lang_hint = detect_intent(question)
     print(f"[DEBUG] intent={intent} | lang_hint={lang_hint}")
 
@@ -218,9 +206,9 @@ while True:
 
     last_lang = lang
 
-    # ══════════════════════════════════════
+ 
     #  GESTION OUI / NON (TOUJOURS INTERROMPUE)
-    # ══════════════════════════════════════
+   
     if q_normalized in AFFIRMATIVES:
 
         if last_bot_context == "asked_problem":
@@ -230,6 +218,12 @@ while True:
         elif last_bot_context == "gave_solution":
             bot_msg = random.choice(THANKS_FR if lang == "fr" else THANKS_EN)
             last_bot_context = None
+            # Mettre à jour le dernier ticket comme résolu
+            log_ticket(
+                message="[FEEDBACK: résolu]", langue=lang, intent="feedback",
+                difficulte="", priorite="", auto_resolve="", resolu=True
+            )
+           
 
         else:
             # Aucun contexte : "oui" sans raison → inviter à décrire
@@ -260,20 +254,20 @@ while True:
         print("-" * 60)
         continue
 
-    # ══════════════════════════════════════
+
     #  FILTRE BRUIT CLAVIER
-    #  Placé ICI : avant les intents sociaux pour bloquer "hjkl" etc.
+
     #  Les vrais mots sociaux ("hi","salut","merci") ont des voyelles → passent.
-    # ══════════════════════════════════════
+ 
     if not is_understandable(question):
         bot_msg = random.choice(UNCLEAR_FR if lang == "fr" else UNCLEAR_EN)
         print(f"\n🤖 Assistant IT : {bot_msg}")
         print("-" * 60)
         continue
 
-    # ══════════════════════════════════════
+
     #  RÉPONSES SOCIALES (greeting / thanks / goodbye)
-    # ══════════════════════════════════════
+
     if intent == "greeting":
         bot_msg = random.choice(GREETINGS_FR if lang == "fr" else GREETINGS_EN)
         print(f"\n🤖 Assistant IT : {bot_msg}")
@@ -298,9 +292,9 @@ while True:
         print("-" * 60)
         continue
 
-    # ══════════════════════════════════════
+   
     #  MESSAGE TROP COURT ET AMBIGU
-    # ══════════════════════════════════════
+
     words = question.split()
     if intent == "general question" and len(words) <= 2:
         bot_msg = random.choice(UNCLEAR_FR if lang == "fr" else UNCLEAR_EN)
@@ -308,9 +302,9 @@ while True:
         print("-" * 60)
         continue
 
-    # ══════════════════════════════════════
+ 
     #  PIPELINE RAG + ML
-    # ══════════════════════════════════════
+
 
     # Prédictions ML
     pred_difficulty = difficulty_model.predict([question])[0]
@@ -402,5 +396,15 @@ Answer:
     print(f"\n🤖 Assistant IT :\n{answer}")
     conversation_history.append({"user": question, "bot": answer})
     last_bot_context = "gave_solution"
+    # Logger le ticket dans le CSV Power BI
+    log_ticket(
+        message      = question,
+        langue       = lang,
+        intent       = intent,
+        difficulte   = pred_difficulty,
+        priorite     = pred_priority,
+        auto_resolve = pred_auto,
+        resolu       = None  # on ne sait pas encore
+    )
 
     print("-" * 60)

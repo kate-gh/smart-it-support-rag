@@ -1,0 +1,17 @@
+timestamp,date,heure,message,langue,intent,difficulte,priorite,auto_resolve,resolu
+2026-03-02 23:15:56,2026-03-02,23:15,the printer does not work,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 08:54:58,2026-03-03,08:54,comment configurer le vpn,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 08:55:27,2026-03-03,08:55,comment activer mon vpn,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 09:23:51,2026-03-03,09:23,the printer does not work,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 09:51:02,2026-03-03,09:51,After the last Windows update my computer became extremely slow and applications freeze frequently.,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 09:51:45,2026-03-03,09:51,[FEEDBACK: résolu],en,feedback,,,,True
+2026-03-03 09:54:38,2026-03-03,09:54,La connexion internet est lente,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 10:10:30,2026-03-03,10:10,After the last Windows update my computer became extremely slow and applications freeze frequently.,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 10:11:29,2026-03-03,10:11,La connexion internet est lente,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 10:12:15,2026-03-03,10:12,Database connection error,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 10:15:26,2026-03-03,10:15,Mon imprimante ne fonctionne pas,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-03 10:15:34,2026-03-03,10:15,[FEEDBACK: résolu],fr,feedback,,,,True
+2026-03-03 10:24:17,2026-03-03,10:24,Mon imprimante ne fonctionne pas,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-06 09:32:57,2026-03-06,09:32,the printer does not work what should i do?,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-06 09:36:22,2026-03-06,09:36,[FEEDBACK: résolu],en,feedback,,,,True
+2026-03-06 09:43:15,2026-03-06,09:43,how can you be improved,en,IT incident,Medium,Medium,Yes,en_attente

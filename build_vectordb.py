@@ -15,7 +15,7 @@ print("Chargement du dataset...")
 df = pd.read_csv(DATASET_PATH)
 
 # ---------- EXPLORATION INITIALE ----------
-# Affiche les colonnes disponibles pour vérifier la structure du fichier
+# Affiche les colonnes disponibles 
 print("Colonnes disponibles :", df.columns.tolist())
 print("Nombre de lignes :", len(df))
 print(df.head(3))
@@ -30,10 +30,10 @@ print(df.head(3))
 # 'body' ou 'ticket_body'       → détail du problème
 # 'answer' ou 'response'        → solution de l'agent
 
-# ⚠️ Adapter ces noms si les colonnes affichées sont différentes
+
 COL_PROBLEM  = "subject"   # colonne du titre/problème
-COL_DETAIL   = "body"      # colonne du détail (optionnel)
-COL_SOLUTION = "answer"    # colonne de la réponse/solution
+COL_DETAIL   = "body"      
+COL_SOLUTION = "answer"    
 COL_LANG     = "language"  # colonne de la langue (fr / en)
 
 # Vérification que les colonnes existent
@@ -45,7 +45,7 @@ for col in [COL_PROBLEM, COL_SOLUTION]:
 df = df.dropna(subset=[COL_PROBLEM, COL_SOLUTION])
 
 # ---------- FILTRAGE PAR LANGUE ----------
-# On garde uniquement le français et l'anglais
+
 if COL_LANG in df.columns:
     df = df[df[COL_LANG].isin(["fr", "en", "FR", "EN", "french", "english"])]
     print(f"Lignes après filtrage FR/EN : {len(df)}")
@@ -60,7 +60,6 @@ def build_document(row):
     problem  = str(row[COL_PROBLEM]).strip()
     solution = str(row[COL_SOLUTION]).strip()
 
-    # Ajouter le détail si disponible
     detail = ""
     if COL_DETAIL in df.columns and pd.notna(row.get(COL_DETAIL)):
         detail = str(row[COL_DETAIL]).strip()
@@ -93,7 +92,7 @@ print("Connexion à ChromaDB...")
 
 chroma_client = chromadb.PersistentClient(path=CHROMA_PATH)
 
-# Supprimer l'ancienne collection si elle existe pour repartir propre
+# Supprimer l'ancienne collection
 try:
     chroma_client.delete_collection(name=COLLECTION_NAME)
     print("Ancienne collection supprimée.")
@@ -103,7 +102,6 @@ except Exception:
 collection = chroma_client.create_collection(name=COLLECTION_NAME)
 
 # ---------- INSERTION PAR BATCH ----------
-# On insère les documents par blocs de BATCH_SIZE pour éviter les erreurs mémoire
 
 documents  = df["document"].tolist()
 total      = len(documents)
@@ -131,6 +129,6 @@ for i in range(0, total, BATCH_SIZE):
     inserted += len(batch_docs)
     print(f"  Inséré : {inserted}/{total}", end="\r")
 
-print(f"\n✅ Base vectorielle construite avec succès : {inserted} documents")
+print(f"\n Base vectorielle construite avec succès : {inserted} documents")
 print(f"   Collection : '{COLLECTION_NAME}'")
 print(f"   Chemin     : '{CHROMA_PATH}'")
