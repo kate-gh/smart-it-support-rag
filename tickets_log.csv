@@ -15,3 +15,9 @@ timestamp,date,heure,message,langue,intent,difficulte,priorite,auto_resolve,reso
 2026-03-06 09:32:57,2026-03-06,09:32,the printer does not work what should i do?,en,IT incident,Medium,Medium,Yes,en_attente
 2026-03-06 09:36:22,2026-03-06,09:36,[FEEDBACK: résolu],en,feedback,,,,True
 2026-03-06 09:43:15,2026-03-06,09:43,how can you be improved,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-09 11:25:33,2026-03-09,11:25,the programme SAFI does not work,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-09 11:25:57,2026-03-09,11:25,the printer does not work,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-11 13:03:02,2026-03-11,13:03,j'ai une probleme outlook,fr,IT incident,Medium,Medium,Yes,en_attente
+2026-03-18 11:54:46,2026-03-18,11:54,mon printer stops working,en,IT incident,Medium,Medium,Yes,en_attente
+2026-03-25 11:57:25,2026-03-25,11:57,the internet not working,en,IT incident,medium,medium,True,en_attente
+2026-03-25 12:00:25,2026-03-25,12:00,no,en,general question,medium,medium,True,False

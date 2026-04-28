@@ -1,0 +1,38 @@
+[
+  {
+    "question": "mon imprimente ne foctione pas",
+    "answer": "Pour résoudre le problème avec votre imprimante, suivez ces étapes :\n1. Vérifiez que l'imprimante est correctement connectée au réseau ou à l'ordinateur et que les câbles sont bien en place.\n2. Redémarrez l'imprimante et l'ordinateur pour s'assurer que tous les composants sont initialisés correctement.\n3. Vérifiez que les pilotes d'imprimante sont à jour et compatibles avec votre système d'exploitation.\nIf the issue persists, please contact the IT helpdesk.",
+    "category": "IT Support",
+    "priority": "medium",
+    "source": "llm_fallback",
+    "validated": true,
+    "timestamp": "2026-03-26T08:56:41.826573"
+  },
+  {
+    "question": "l'imprement ne fonctionne pas",
+    "answer": "Pour résoudre le problème de l'imprimante qui ne fonctionne pas, suivez ces étapes :\n\n1. Vérifiez que l'imprimante est correctement connectée au réseau ou à l'ordinateur, que les câbles sont bien en place et que l'imprimante est allumée.\n2. Assurez-vous que les pilotes d'imprimante sont à jour et compatibles avec votre système d'exploitation, et réinstallez-les si nécessaire.\n3. Redémarrez l'imprimante et l'ordinateur pour s'assurer que tous les composants sont initialisés correctement et que les paramètres sont rétablis à leurs valeurs par défaut.\n\nIf the issue persists, please contact the IT helpdesk.",
+    "category": "Hardware & Peripherals",
+    "priority": "medium",
+    "source": "llm_fallback",
+    "validated": false,
+    "timestamp": "2026-03-26T11:51:40.232774"
+  },
+  {
+    "question": "mon écran devient noir aléatoirement",
+    "answer": "Pour résoudre le problème de l'écran qui devient noir aléatoirement, suivez ces étapes :\n\n1. **Vérifiez les câbles de connexion** : assurez-vous que tous les câbles (comme le câble VGA, HDMI ou DisplayPort) sont bien connectés et sécurisés à la fois à l'ordinateur et à l'écran. Essayez de déconnecter et de reconnecter les câbles pour voir si cela résout le problème.\n2. **Mettez à jour les pilotes graphiques** : les pilotes graphiques obsolètes peuvent causer des problèmes d'affichage. Allez sur le site web du fabricant de votre carte graphique et téléchargez les derniers pilotes disponibles. Suivez les instructions pour installer les pilotes et redémarrez votre ordinateur.\n3. **Effectuez un test de base de l'écran** : essayez de connecter votre ordinateur à un autre écran pour voir si le problème est spécifique à l'écran actuel. Si l'écran fonctionne correctement sur un autre ordinateur, le problème peut être lié à votre ordinateur. Si le problème persiste, il est possible que l'écran lui-même soit défectueux.\n\nIf the issue persists, please contact the IT helpdesk.",
+    "category": "Hardware & Peripherals",
+    "priority": "high",
+    "source": "llm_fallback",
+    "validated": false,
+    "timestamp": "2026-03-30T12:23:35.837095"
+  },
+  {
+    "question": "comment créer un compte google",
+    "answer": "Pour créer un compte Google, suivez ces étapes :\n\n1. Allez sur le site web de Google à l'adresse [www.google.com](http://www.google.com) et cliquez sur le bouton \"Créer un compte\" en haut à droite de la page.\n2. Remplissez le formulaire d'inscription avec vos informations personnelles, notamment votre nom, votre adresse e-mail et votre mot de passe, puis cliquez sur le bouton \"Suivant\" pour poursuivre le processus d'inscription.\n3. Vérifiez votre adresse e-mail en cliquant sur le lien de vérification envoyé par Google, puis acceptez les conditions d'utilisation pour activer votre nouveau compte Google.\n\nIf the issue persists, please contact the IT helpdesk.",
+    "category": "Access Management",
+    "priority": "medium",
+    "source": "llm_fallback",
+    "validated": false,
+    "timestamp": "2026-03-31T11:41:44.785639"
+  }
+]

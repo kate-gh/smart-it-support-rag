@@ -15,6 +15,7 @@ env/
 huggingface/
 
 # ChromaDB
+chroma_db/
 vector_db/
 
 # Models
@@ -23,3 +24,21 @@ vector_db/
 # OS
 .DS_Store
 Thumbs.db
+# stuff
+/old
+/data1
+/node_modules
+generate_sample_data.py
+intent_detector.py
+ml_models.py
+train_ml_models.py
+llm_openrouter.py
+logger.py
+kafka-logs/
+*.sqlite3
+*.db
+scripts/*
+!scripts/build_vectordb.py
+!scripts/clean_and_normalize_datasets.py
+!scripts/comparaison_Embedding_models.py
+!scripts/fallback_llm.py
