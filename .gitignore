@@ -42,3 +42,5 @@ scripts/*
 !scripts/clean_and_normalize_datasets.py
 !scripts/comparaison_Embedding_models.py
 !scripts/fallback_llm.py
+lid.176.bin
+feedback_model_pt/model.safetensors

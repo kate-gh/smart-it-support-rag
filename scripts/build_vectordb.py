@@ -1,21 +1,3 @@
-"""
-build_vectordb.py  — version corrigée
-======================================
-Problème de l'ancienne version :
-  Question et réponse insérées comme chunks séparés
-  → le retrieval peut retourner une réponse sans sa question,
-    ou une question sans réponse. Le LLM est perdu.
-
-Architecture corrigée — Paired chunking :
-  On indexe la QUESTION (ce que l'utilisateur va poser)
-  On stocke la RÉPONSE en metadata (ce qu'on veut récupérer)
-  → retrieval toujours cohérent : 1 hit = 1 paire complète
-
-  En bonus on ajoute un document "contexte enrichi" qui combine
-  question + réponse pour les cas où l'utilisateur formule
-  différemment de la question originale.
-"""
-
 import pandas as pd
 import chromadb
 from sentence_transformers import SentenceTransformer

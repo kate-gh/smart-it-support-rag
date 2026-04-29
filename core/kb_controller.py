@@ -1,8 +1,3 @@
-"""
-core/kb_controller.py
-Contient handle_kb_add() — même logique que le /kb/add original dans app.py.
-"""
-
 from kafka_producer import publish_kb_update
 
 

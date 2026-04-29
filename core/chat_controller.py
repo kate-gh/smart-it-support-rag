@@ -1,10 +1,3 @@
-"""
-core/chat_controller.py
-Contient handle_chat() — même logique que le /chat original dans app.py.
-Reçoit toutes ses dépendances par injection pour rester découplé.
-"""
-
-
 def handle_chat(
     data,
     state,
