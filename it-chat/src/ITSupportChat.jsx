@@ -4,8 +4,9 @@ import LoginModal from "./LoginModal";
 import ConfirmAddModal from "./ConfirmAddModal";
 import UserMenu from "./UserMenu";
 import AdminDashboard from "./AdminDashboard";
-
+import ConversationSidebar from "./ConversationSidebar";
 const API = "http://localhost:5000";
+import { ImageIcon, X as XIcon } from "lucide-react";
 
 // ── Palette ───────────────────────────────────────────────
 const C = {
@@ -151,27 +152,35 @@ const Avatar = ({ active }) => (
 const Msg = ({ msg, isLast }) => {
   if (msg.role === "user")
     return (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: 16,
-          animation: "fadeUp .25s ease",
-        }}
-      >
-        <div
-          style={{
-            maxWidth: "72%",
-            background: `linear-gradient(135deg,${C.accent},#1d4ed8)`,
-            borderRadius: "14px 14px 3px 14px",
-            padding: "10px 15px",
-            fontSize: 14,
-            color: "#fff",
-            lineHeight: 1.65,
-            boxShadow: `0 3px 16px rgba(37,99,235,.3)`,
-          }}
-        >
-          {msg.content}
+      <div style={{
+        display:"flex", justifyContent:"flex-end",
+        marginBottom:16, animation:"fadeUp .25s ease",
+      }}>
+        <div style={{maxWidth:"72%", display:"flex", flexDirection:"column", gap:6, alignItems:"flex-end"}}>
+          {/* Image preview si présente */}
+          {msg.image && (
+            <img
+              src={msg.image}
+              alt="screenshot"
+              style={{
+                maxWidth:220, maxHeight:160,
+                borderRadius:10, objectFit:"cover",
+                border:`1px solid ${C.border}`,
+              }}
+            />
+          )}
+          {/* Texte */}
+          {msg.content && (
+            <div style={{
+              background:`linear-gradient(135deg,${C.accent},#1d4ed8)`,
+              borderRadius:"14px 14px 3px 14px",
+              padding:"10px 15px", fontSize:14,
+              color:"#fff", lineHeight:1.65,
+              boxShadow:`0 3px 16px rgba(37,99,235,.3)`,
+            }}>
+              {msg.content}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -369,7 +378,10 @@ export default function ITSupportChat() {
   const [bannerMsgIndex, setBannerMsgIndex] = useState(null);
   const [lastFallback, setLastFallback] = useState(null);
   const [status, setStatus] = useState("idle");
-  const [sessionId] = useState(() => crypto.randomUUID());
+  // const [sessionId] = useState(() => crypto.randomUUID());
+  const [sessionId, setSessionId] = useState(() => crypto.randomUUID());
+  const [pendingImage, setPendingImage] = useState(null); // { base64, type, preview }
+  const fileInputRef = useRef(null);
   const bottom = useRef(null);
   const inp = useRef(null);
 
@@ -422,13 +434,10 @@ export default function ITSupportChat() {
   };
 
   if (showAdmin) {
-
     // 🔒 pas connecté
     if (!user) {
       return (
-        <div style={{ color: "white", padding: 20 }}>
-          Please login first
-        </div>
+        <div style={{ color: "white", padding: 20 }}>Please login first</div>
       );
     }
 
@@ -477,92 +486,144 @@ export default function ITSupportChat() {
     };
   }
 
-  async function send() {
-    if (!input.trim() || loading) return;
-    const txt = input.trim();
+
+  function handleNewConversation() {
+    setSessionId(crypto.randomUUID());
+    setMsgs([{
+      role: "agent",
+      content: lang === "fr"
+        ? "Bonjour ! Nouvelle session démarrée. Comment puis-je vous aider ?"
+        : "Hello! New session started. How can I help you?",
+      type: "kb",
+      time: now(),
+    }]);
     setInput("");
-    setMsgs((p) => [...p, { role: "user", content: txt, time: now() }]);
+    setPendingImage(null);
+    setFeedback(false);
+    setLastFallback(null);
+    setBannerMsgIndex(null);
+    setTickets([]);
+    inp.current?.focus();
+  }
+  
+  async function handleImageSelect(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+  
+    // Valider type et taille (max 4 Mo)
+    const allowed = ["image/jpeg","image/png","image/webp","image/gif"];
+    if (!allowed.includes(file.type)) {
+      alert(lang === "fr"
+        ? "Format non supporté. Utilisez JPG, PNG ou WebP."
+        : "Unsupported format. Use JPG, PNG or WebP.");
+      return;
+    }
+    if (file.size > 4 * 1024 * 1024) {
+      alert(lang === "fr"
+        ? "Image trop lourde (max 4 Mo)."
+        : "Image too large (max 4 MB).");
+      return;
+    }
+  
+    // Convertir en base64
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1];
+      setPendingImage({
+        base64,
+        type: file.type,
+        preview: URL.createObjectURL(file),
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  
+    // Reset input file pour permettre re-sélection du même fichier
+    e.target.value = "";
+  }
+
+  async function send() {
+    if (!input.trim() && !pendingImage || loading) return;
+    const txt = input.trim();
+    const img = pendingImage;
+  
+    setInput("");
+    setPendingImage(null);
     setLoading(true);
     setStatus("think");
     setFeedback(false);
-
+  
+    // Message utilisateur affiché (avec preview image si présente)
+    setMsgs(p => [...p, {
+      role: "user",
+      content: txt || (lang === "fr" ? "[Image envoyée]" : "[Image sent]"),
+      image: img?.preview,
+      time: now(),
+    }]);
+  
     try {
+      const body = {
+        message   : txt,
+        lang,
+        session_id: sessionId,
+        user_id   : user?.user_id || null,
+        is_logged : !!user,
+      };
+      if (img) {
+        body.image_base64 = img.base64;
+        body.image_type   = img.type;
+      }
+  
       const d = await fetchWithAuth(`${API}/chat`, {
         method: "POST",
-        body: JSON.stringify({
-          message: txt,
-          lang: lang,
-          session_id: sessionId,
-          user_id: user?.user_id || null,
-          is_logged: !!user,
-        }),
+        body: JSON.stringify(body),
       });
-
+  
       if (!d) return;
       setStatus("type");
-      await new Promise((r) => setTimeout(r, 280));
-
-      setMsgs((p) => [
-        ...p,
-        {
-          role: "agent",
-          content: d.response,
-          type: d.type,
-          category: d.category,
-          priority: d.priority,
-          time: now(),
-        },
-      ]);
-
+      await new Promise(r => setTimeout(r, 280));
+  
+      setMsgs(p => [...p, {
+        role: "agent",
+        content: d.response,
+        type: d.type,
+        category: d.category,
+        priority: d.priority,
+        time: now(),
+      }]);
+  
       if (d.ticket_id) {
-        const t = {
-          ticket_id: d.ticket_id,
-          category: d.category,
-          priority: d.priority,
-        };
-        setTickets((p) => [...p, t]);
+        const t = { ticket_id:d.ticket_id, category:d.category, priority:d.priority };
+        setTickets(p => [...p, t]);
         setToast(t);
         setTimeout(() => setToast(null), 3500);
       }
       if (d.type === "llm_fallback") {
-        setBannerMsgIndex(msgs.length);
-        setLastFallback((prev) => ({
-          // garder la question originale si elle existe déjà
-          question:
-            prev?.question && prev.question !== txt
-              ? prev.question // garde l'ancienne question IT
-              : txt, // première fois → prend txt
-          answer: d.response,
+        setBannerMsgIndex(msgs.length + 1);
+        setLastFallback(prev => ({
+          question: prev?.question && prev.question !== txt ? prev.question : (txt || "Screenshot analysis"),
+          answer  : d.response,
           category: d.category,
           priority: d.priority,
         }));
       } else if (d.type === "kb") {
-        // ✅ Quand KB répond → stocker la vraie question pour plus tard
-        setLastFallback((prev) => ({
-          ...prev,
-          question: txt, // toujours garder la vraie question IT
-        }));
+        setLastFallback(prev => ({ ...prev, question: txt }));
         setBannerMsgIndex(null);
       }
     } catch {
-      setMsgs((p) => [
-        ...p,
-        {
-          role: "agent",
-          type: "error",
-          time: now(),
-          content:
-            lang === "fr"
-              ? "Erreur de connexion. Vérifiez que le backend Flask tourne sur le port 5000."
-              : "Connection error. Make sure the Flask backend is running on port 5000.",
-        },
-      ]);
+      setMsgs(p => [...p, {
+        role:"agent", type:"error", time:now(),
+        content: lang === "fr"
+          ? "Erreur de connexion. Vérifiez que le backend Flask tourne sur le port 5000."
+          : "Connection error. Make sure the Flask backend is running on port 5000.",
+      }]);
     } finally {
       setLoading(false);
       setStatus("idle");
       inp.current?.focus();
     }
   }
+
 
   async function submitFeedback(helpful) {
     setBannerMsgIndex(null);
@@ -838,337 +899,398 @@ export default function ITSupportChat() {
         </div>
       </header>
 
-      {/* tickets dropdown */}
-      {showTix && (
+      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        {/* Sidebar historique */}
+        <ConversationSidebar
+          user={user}
+          lang={lang}
+          currentSessionId={sessionId}
+          authHeaders={authHeaders}
+          onNewConversation={handleNewConversation}
+          onLoadConversation={(sid, rows) => {
+            const loaded = rows.flatMap(row => [
+              {
+                role: "user",
+                content: row.question,
+                time: new Date(row.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),
+              },
+              {
+                role   : "agent",
+                content: row.answer,
+                type   : row.source,
+                time   : new Date(row.created_at).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}),
+              },
+            ]);
+            setMsgs(loaded);
+          }}
+        />
         <div
           style={{
-            position: "absolute",
-            top: 62,
-            right: 16,
-            zIndex: 100,
-            background: C.surface,
-            border: `1px solid ${C.border}`,
-            borderRadius: 12,
-            padding: 13,
-            minWidth: 230,
-            boxShadow: "0 8px 32px rgba(0,0,0,.6)",
-            animation: "fadeUp .18s ease",
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
           }}
         >
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: ".1em",
-              color: C.muted,
-              marginBottom: 9,
-              fontFamily: "IBM Plex Mono,monospace",
-            }}
-          >
-            TICKETS ({tickets.length})
-          </div>
-          {tickets.map((t, i) => (
+          {/* tickets dropdown */}
+          {showTix && (
             <div
-              key={i}
               style={{
-                padding: "8px 10px",
-                background: C.hi,
-                borderRadius: 8,
-                marginBottom: 6,
-                borderLeft: `3px solid ${C.orange}`,
+                position: "absolute",
+                top: 62,
+                right: 16,
+                zIndex: 100,
+                background: C.surface,
+                border: `1px solid ${C.border}`,
+                borderRadius: 12,
+                padding: 13,
+                minWidth: 230,
+                boxShadow: "0 8px 32px rgba(0,0,0,.6)",
+                animation: "fadeUp .18s ease",
               }}
             >
               <div
                 style={{
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: 700,
-                  color: C.orange,
+                  letterSpacing: ".1em",
+                  color: C.muted,
+                  marginBottom: 9,
                   fontFamily: "IBM Plex Mono,monospace",
                 }}
               >
-                {t.ticket_id}
+                TICKETS ({tickets.length})
               </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                {t.category} · {t.priority}
-              </div>
+              {tickets.map((t, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "8px 10px",
+                    background: C.hi,
+                    borderRadius: 8,
+                    marginBottom: 6,
+                    borderLeft: `3px solid ${C.orange}`,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: C.orange,
+                      fontFamily: "IBM Plex Mono,monospace",
+                    }}
+                  >
+                    {t.ticket_id}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                    {t.category} · {t.priority}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* toast */}
-      {toast && (
-        <div
-          style={{
-            position: "absolute",
-            top: 70,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "#180d00",
-            border: `1px solid ${C.orange}`,
-            borderRadius: 10,
-            padding: "9px 18px",
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            zIndex: 200,
-            boxShadow: "0 4px 24px rgba(0,0,0,.7)",
-            animation: "toast .22s ease",
-            whiteSpace: "nowrap",
-          }}
-        >
-          <span style={{ fontSize: 18 }}>🎫</span>
-          <div>
+          {/* toast */}
+          {toast && (
             <div
               style={{
-                fontSize: 12,
-                fontWeight: 700,
-                color: C.orange,
-                fontFamily: "IBM Plex Mono,monospace",
+                position: "absolute",
+                top: 70,
+                left: "50%",
+                transform: "translateX(-50%)",
+                background: "#180d00",
+                border: `1px solid ${C.orange}`,
+                borderRadius: 10,
+                padding: "9px 18px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                zIndex: 200,
+                boxShadow: "0 4px 24px rgba(0,0,0,.7)",
+                animation: "toast .22s ease",
+                whiteSpace: "nowrap",
               }}
             >
-              Ticket {toast.ticket_id}
-            </div>
-            <div style={{ fontSize: 11, color: C.muted }}>
-              {toast.category} · {toast.priority}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CHAT ── */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "22px 20px",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        <div style={{ maxWidth: 700, margin: "0 auto" }}>
-          {msgs.map((msg, i) => (
-            <div key={i}>
-              <Msg msg={msg} isLast={i === msgs.length - 1} />
-              {bannerMsgIndex === i && (
-                <AutoLearnBanner
-                  lang={lang}
-                  onYes={() => handleAdd()}
-                  onNo={() => submitFeedback(false)}
-                />
-              )}
-            </div>
-          ))}
-          {loading && (
-            <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
-              <Avatar active />
-              <div
-                style={{
-                  background: C.hi,
-                  border: `1px solid ${C.border}`,
-                  borderRadius: "3px 14px 14px 14px",
-                  padding: "8px 15px",
-                }}
-              >
-                <Dots />
+              <span style={{ fontSize: 18 }}>🎫</span>
+              <div>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: C.orange,
+                    fontFamily: "IBM Plex Mono,monospace",
+                  }}
+                >
+                  Ticket {toast.ticket_id}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted }}>
+                  {toast.category} · {toast.priority}
+                </div>
               </div>
             </div>
           )}
-          <div ref={bottom} />
-        </div>
-      </div>
 
-      {/* ── FEEDBACK ── */}
-      {feedback && (
-        <div
-          style={{
-            position: "relative",
-            zIndex: 5,
-            background: "#0a1020",
-            borderTop: `1px solid ${C.border}`,
-            padding: "10px 20px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            animation: "fadeUp .2s ease",
-          }}
-        >
-          <span style={{ fontSize: 13, color: C.muted }}>
-            {lang === "fr"
-              ? "Cette réponse a-t-elle résolu votre problème ?"
-              : "Did this answer resolve your issue?"}
-          </span>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[
-              {
-                l: lang === "fr" ? "✓  Oui" : "✓  Yes",
-                v: true,
-                bg: C.soft,
-                c: C.glow,
-                b: C.accent,
-              },
-              {
-                l: lang === "fr" ? "✕  Non" : "✕  No",
-                v: false,
-                bg: "#1a0808",
-                c: C.red,
-                b: C.red,
-              },
-            ].map((btn) => (
-              <button
-                key={btn.l}
-                onClick={() => doFeedback(btn.v)}
-                style={{
-                  padding: "6px 16px",
-                  background: btn.bg,
-                  border: `1px solid ${btn.b}`,
-                  borderRadius: 8,
-                  color: btn.c,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  transition: "opacity .15s",
-                }}
-              >
-                {btn.l}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── INPUT ── */}
-      <div
-        style={{
-          position: "relative",
-          zIndex: 5,
-          background: `${C.surface}f0`,
-          backdropFilter: "blur(14px)",
-          borderTop: `1px solid ${C.border}`,
-          padding: "14px 20px 18px",
-        }}
-      >
-        <div style={{ maxWidth: 700, margin: "0 auto" }}>
-          {/* chips */}
+          {/* ── CHAT ── */}
           <div
             style={{
-              display: "flex",
-              gap: 6,
-              flexWrap: "wrap",
-              marginBottom: 10,
+              flex: 1,
+              overflowY: "auto",
+              padding: "22px 20px",
+              position: "relative",
+              zIndex: 1,
             }}
           >
-            {CHIPS[lang].map((c) => (
-              <Chip
-                key={c}
-                label={c}
-                onClick={() => {
-                  setInput(c);
-                  inp.current?.focus();
-                }}
-              />
-            ))}
+            <div style={{ maxWidth: 700, margin: "0 auto" }}>
+              {msgs.map((msg, i) => (
+                <div key={i}>
+                  <Msg msg={msg} isLast={i === msgs.length - 1} />
+                  {bannerMsgIndex === i && (
+                    <AutoLearnBanner
+                      lang={lang}
+                      onYes={() => handleAdd()}
+                      onNo={() => submitFeedback(false)}
+                    />
+                  )}
+                </div>
+              ))}
+              {loading && (
+                <div style={{ display: "flex", gap: 10, marginBottom: 20 }}>
+                  <Avatar active />
+                  <div
+                    style={{
+                      background: C.hi,
+                      border: `1px solid ${C.border}`,
+                      borderRadius: "3px 14px 14px 14px",
+                      padding: "8px 15px",
+                    }}
+                  >
+                    <Dots />
+                  </div>
+                </div>
+              )}
+              <div ref={bottom} />
+            </div>
           </div>
 
-          {/* row */}
-          <div style={{ display: "flex", gap: 9, alignItems: "flex-end" }}>
+          {/* ── FEEDBACK ── */}
+          {feedback && (
             <div
               style={{
-                flex: 1,
-                background: C.hi,
-                border: `1px solid ${C.borderHi}`,
-                borderRadius: 14,
-                padding: "10px 14px",
-                display: "flex",
-                alignItems: "flex-end",
-                gap: 8,
-              }}
-            >
-              <textarea
-                ref={inp}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={onKey}
-                placeholder={
-                  lang === "fr"
-                    ? "Décrivez votre problème IT…"
-                    : "Describe your IT issue…"
-                }
-                rows={1}
-                style={{
-                  flex: 1,
-                  background: "transparent",
-                  color: C.text,
-                  fontSize: 14,
-                  lineHeight: 1.6,
-                  fontFamily: "DM Sans,Segoe UI,sans-serif",
-                  maxHeight: 110,
-                  overflowY: "auto",
-                }}
-                onInput={(e) => {
-                  e.target.style.height = "auto";
-                  e.target.style.height =
-                    Math.min(e.target.scrollHeight, 110) + "px";
-                }}
-              />
-            </div>
-            <button
-              onClick={send}
-              disabled={loading || !input.trim()}
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 12,
-                flexShrink: 0,
-                background:
-                  loading || !input.trim()
-                    ? C.hi
-                    : `linear-gradient(135deg,${C.accent},#7c3aed)`,
-                border: `1px solid ${loading || !input.trim() ? C.border : "transparent"}`,
-                color: loading || !input.trim() ? C.dim : "#fff",
-                fontSize: loading ? "" : 18,
+                position: "relative",
+                zIndex: 5,
+                background: "#0a1020",
+                borderTop: `1px solid ${C.border}`,
+                padding: "10px 20px",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                transition: "all .2s",
-                boxShadow:
-                  loading || !input.trim()
-                    ? "none"
-                    : `0 4px 18px ${C.accent}50`,
+                justifyContent: "space-between",
+                animation: "fadeUp .2s ease",
               }}
             >
-              {loading ? (
-                <span
-                  style={{
-                    width: 15,
-                    height: 15,
-                    borderRadius: "50%",
-                    border: `2px solid ${C.dim}`,
-                    borderTopColor: "transparent",
-                    display: "inline-block",
-                    animation: "spin .8s linear infinite",
-                  }}
-                />
-              ) : (
-                "↑"
-              )}
-            </button>
-          </div>
+              <span style={{ fontSize: 13, color: C.muted }}>
+                {lang === "fr"
+                  ? "Cette réponse a-t-elle résolu votre problème ?"
+                  : "Did this answer resolve your issue?"}
+              </span>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  {
+                    l: lang === "fr" ? "✓  Oui" : "✓  Yes",
+                    v: true,
+                    bg: C.soft,
+                    c: C.glow,
+                    b: C.accent,
+                  },
+                  {
+                    l: lang === "fr" ? "✕  Non" : "✕  No",
+                    v: false,
+                    bg: "#1a0808",
+                    c: C.red,
+                    b: C.red,
+                  },
+                ].map((btn) => (
+                  <button
+                    key={btn.l}
+                    onClick={() => doFeedback(btn.v)}
+                    style={{
+                      padding: "6px 16px",
+                      background: btn.bg,
+                      border: `1px solid ${btn.b}`,
+                      borderRadius: 8,
+                      color: btn.c,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      transition: "opacity .15s",
+                    }}
+                  >
+                    {btn.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
+          {/* ── INPUT ── */}
           <div
             style={{
-              textAlign: "center",
-              marginTop: 7,
-              fontSize: 10,
-              color: C.dim,
-              fontFamily: "IBM Plex Mono,monospace",
+              position: "relative",
+              zIndex: 5,
+              background: `${C.surface}f0`,
+              backdropFilter: "blur(14px)",
+              borderTop: `1px solid ${C.border}`,
+              padding: "14px 20px 18px",
             }}
           >
-            RAG · ChromaDB · Groq llama-3.3-70b ·{" "}
-            {lang === "fr" ? "Entrée pour envoyer" : "Enter to send"}
+            <div style={{ maxWidth: 700, margin: "0 auto" }}>
+              {/* chips */}
+              <div
+                style={{
+                  display: "flex",
+                  gap: 6,
+                  flexWrap: "wrap",
+                  marginBottom: 10,
+                }}
+              >
+                {CHIPS[lang].map((c) => (
+                  <Chip
+                    key={c}
+                    label={c}
+                    onClick={() => {
+                      setInput(c);
+                      inp.current?.focus();
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Preview image sélectionnée */}
+              {pendingImage && (
+                <div style={{
+                  display:"flex", alignItems:"center", gap:8,
+                  marginBottom:8, padding:"8px 10px",
+                  background:C.hi, border:`1px solid ${C.borderHi}`,
+                  borderRadius:10,
+                }}>
+                  <img
+                    src={pendingImage.preview}
+                    alt="preview"
+                    style={{width:40, height:40, borderRadius:6, objectFit:"cover"}}
+                  />
+                  <div style={{flex:1, minWidth:0}}>
+                    <div style={{fontSize:11, color:C.text, fontWeight:500,
+                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                      {pendingImage.name}
+                    </div>
+                    <div style={{fontSize:10, color:C.muted, fontFamily:"IBM Plex Mono,monospace"}}>
+                      {lang==="fr"?"Prêt à envoyer":"Ready to send"}
+                    </div>
+                  </div>
+                  <button onClick={()=>setPendingImage(null)} style={{
+                    background:"none", border:"none", color:C.muted,
+                    cursor:"pointer", display:"flex", padding:2,
+                  }}>
+                    <XIcon size={14}/>
+                  </button>
+                </div>
+              )}
+              
+              {/* Row input */}
+              <div style={{display:"flex", gap:9, alignItems:"flex-end"}}>
+                <div style={{
+                  flex:1, background:C.hi,
+                  border:`1px solid ${C.borderHi}`,
+                  borderRadius:14, padding:"10px 14px",
+                  display:"flex", alignItems:"flex-end", gap:8,
+                }}>
+                  <textarea
+                    ref={inp}
+                    value={input}
+                    onChange={e=>setInput(e.target.value)}
+                    onKeyDown={onKey}
+                    placeholder={lang==="fr"?"Décrivez votre problème IT…":"Describe your IT issue…"}
+                    rows={1}
+                    style={{
+                      flex:1, background:"transparent",
+                      color:C.text, fontSize:14, lineHeight:1.6,
+                      fontFamily:"DM Sans,Segoe UI,sans-serif",
+                      maxHeight:110, overflowY:"auto",
+                    }}
+                    onInput={e=>{
+                      e.target.style.height="auto";
+                      e.target.style.height=Math.min(e.target.scrollHeight,110)+"px";
+                    }}
+                  />
+                  {/* Bouton image */}
+                  <button
+                    onClick={()=>fileInputRef.current?.click()}
+                    title={lang==="fr"?"Joindre une capture":"Attach screenshot"}
+                    style={{
+                      width:28, height:28, borderRadius:7, flexShrink:0,
+                      background: pendingImage ? C.accent+"33" : "transparent",
+                      border:`1px solid ${pendingImage ? C.accent : C.border}`,
+                      color: pendingImage ? C.accent : C.muted,
+                      display:"flex", alignItems:"center", justifyContent:"center",
+                      cursor:"pointer", transition:"all .15s",
+                    }}
+                    onMouseEnter={e=>{ if(!pendingImage){ e.currentTarget.style.borderColor=C.accent; e.currentTarget.style.color=C.accent; }}}
+                    onMouseLeave={e=>{ if(!pendingImage){ e.currentTarget.style.borderColor=C.border; e.currentTarget.style.color=C.muted; }}}
+                  >
+                    <ImageIcon size={13}/>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleImageSelect}
+                    style={{display:"none"}}
+                  />
+                </div>
+              
+                {/* Bouton envoyer */}
+                <button
+                  onClick={send}
+                  disabled={loading || (!input.trim() && !pendingImage)}
+                  style={{
+                    width:44, height:44, borderRadius:12, flexShrink:0,
+                    background: (loading || (!input.trim() && !pendingImage))
+                      ? C.hi
+                      : `linear-gradient(135deg,${C.accent},#7c3aed)`,
+                    border:`1px solid ${(loading || (!input.trim() && !pendingImage)) ? C.border : "transparent"}`,
+                    color: (loading || (!input.trim() && !pendingImage)) ? C.dim : "#fff",
+                    fontSize:18,
+                    display:"flex", alignItems:"center", justifyContent:"center",
+                    transition:"all .2s",
+                    boxShadow: (loading || (!input.trim() && !pendingImage))
+                      ? "none"
+                      : `0 4px 18px ${C.accent}50`,
+                  }}
+                >
+                  {loading ? (
+                    <span style={{
+                      width:15, height:15, borderRadius:"50%",
+                      border:`2px solid ${C.dim}`, borderTopColor:"transparent",
+                      display:"inline-block", animation:"spin .8s linear infinite",
+                    }}/>
+                  ) : "↑"}
+                </button>
+              </div>
+
+              <div
+                style={{
+                  textAlign: "center",
+                  marginTop: 7,
+                  fontSize: 10,
+                  color: C.dim,
+                  fontFamily: "IBM Plex Mono,monospace",
+                }}
+              >
+                RAG · ChromaDB · Groq llama-3.3-70b ·{" "}
+                {lang === "fr" ? "Entrée pour envoyer" : "Enter to send"}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
       {showLoginModal && (
         <LoginModal
           lang={lang}
