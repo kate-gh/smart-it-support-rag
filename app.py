@@ -4,6 +4,9 @@ from datetime import datetime
 from core.chat_controller import handle_chat
 from core.kb_controller import handle_kb_add
 
+from ocr_handler import extract_text_from_image, format_ocr_for_chat
+
+from db import fetchall, fetchone, execute
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_limiter import Limiter
@@ -321,45 +324,57 @@ def login():
 def chat():
     data       = request.get_json() or {}
     session_id = data.get("session_id", "default")
-
+ 
     state = sessions.setdefault(session_id, {
-        "history": [],
-        "lang": "fr",
-        "question": None,
-        "classification": None,
-        "awaiting_feedback": False,
+        "history": [], "lang": "fr", "question": None,
+        "classification": None, "awaiting_feedback": False,
         "failure_count": 0,
     })
-
+ 
+    # ── Traitement image OCR ─────────────────────────────────────────────────
+    image_base64 = data.get("image_base64")
+    image_type   = data.get("image_type", "image/jpeg")
+    user_message = (data.get("message") or "").strip()
+    lang         = state.get("lang", "en")
+ 
+    if image_base64:
+        print(f"  [CHAT] Image reçue, OCR en cours...")
+        ocr_text = extract_text_from_image(image_base64, image_type)
+ 
+        if ocr_text:
+            # Enrichir le message avec le texte extrait
+            data["message"] = format_ocr_for_chat(ocr_text, user_message, lang)
+            print(f"  [CHAT] OCR injecté : {len(ocr_text)} chars")
+        else:
+            # OCR vide = image sans texte (logo, photo)
+            no_text_msg = {
+                "fr": (
+                    f"{user_message}\n\n"
+                    "[Capture d'écran reçue — aucun texte détecté. "
+                    "Pouvez-vous décrire l'erreur visible ?]"
+                ),
+                "en": (
+                    f"{user_message}\n\n"
+                    "[Screenshot received — no text detected. "
+                    "Can you describe the visible error?]"
+                ),
+            }
+            data["message"] = no_text_msg.get(lang, no_text_msg["en"])
+            print("  [CHAT] OCR vide, demande description manuelle")
+ 
+    # ── Message vide sans image → erreur ────────────────────────────────────
+    if not data.get("message"):
+        return jsonify({"response": "", "type": "error"})
+ 
     result = handle_chat(
-        data,
-        state,
-        intent_classifier,
-        tool_search_kb,
-        generate_from_kb,
-        tool_llm_fallback,
-        classify_with_llm,
-        translate_to_english,
-        m,
-        output_is_clean,
-        handle_feedback,
-        save_to_pending,
-        detect_language_safe,
-        parse_short_feedback,
-        detect_action,
-        handle_action,
-        is_understandable,
-        is_prompt_injection,
-        detect_lang_command,
-        sessions,
-        reset_problem,
-        ticket_response,
-        save_conversation,
-        MAX_RETRIES,
-        social_intent,
-        is_it_related,
+        data, state, intent_classifier, tool_search_kb, generate_from_kb,
+        tool_llm_fallback, classify_with_llm, translate_to_english, m,
+        output_is_clean, handle_feedback, save_to_pending, detect_language_safe,
+        parse_short_feedback, detect_action, handle_action, is_understandable,
+        is_prompt_injection, detect_lang_command, sessions, reset_problem,
+        ticket_response, save_conversation, MAX_RETRIES, social_intent, is_it_related,
     )
-
+ 
     return jsonify(result)
 # ── Routes secondaires ────────────────────────────────────
 
@@ -591,6 +606,118 @@ def _ingest_to_chroma(question, answer, category, priority):
         print(f"[CHROMA] Added: {base_id}")
     except Exception as e:
         print(f"[CHROMA ERROR] {e}")
+
+@app.route("/user/conversations", methods=["GET"])
+@require_auth
+def user_conversations():
+    """Liste des conversations groupées par session pour l'utilisateur connecté."""
+    # require_auth doit injecter user_id dans request — adapte selon ton jwt_utils
+    user_id = request.current_user["user_id"]
+
+    rows = fetchall("""
+        SELECT 
+            session_id,
+            MIN(question)    AS first_question,
+            MAX(custom_title) AS custom_title,
+            MAX(created_at)  AS last_activity,
+            COUNT(*)         AS message_count,
+            MAX(resolved)    AS resolved,
+            GROUP_CONCAT(DISTINCT source SEPARATOR ',') AS sources
+        FROM conversations
+        WHERE user_id = %s
+          AND question IS NOT NULL
+          AND LENGTH(TRIM(question)) > 0
+        GROUP BY session_id
+        ORDER BY last_activity DESC
+        LIMIT 30
+    """, (user_id,))
+
+    # Construire un titre propre depuis first_question
+    result = []
+    for r in rows:
+        q = r.get("first_question") or ""
+        title = r.get("custom_title")
+
+        if not title:
+            title = " ".join(q.split()[:7])
+
+            if len(q.split()) > 7:
+                title += "..."
+
+        # Source principale (kb > llm_fallback > ticket)
+        sources = r.get("sources", "") or ""
+        if "kb" in sources:
+            res_source = "kb"
+        elif "llm" in sources:
+            res_source = "llm"
+        else:
+            res_source = "other"
+
+        result.append({
+            "session_id"    : r["session_id"],
+            "title"         : title,
+            "last_activity" : str(r["last_activity"]),
+            "message_count" : r["message_count"],
+            "resolved"      : bool(r["resolved"]),
+            "source"        : res_source,
+        })
+
+    return jsonify(result)
+
+
+@app.route("/user/conversations/<session_id>", methods=["GET"])
+@require_auth
+def user_conversation_detail(session_id):
+    """Détail d'une conversation — tous les messages."""
+    user_id = request.current_user["user_id"]
+
+    rows = fetchall("""
+        SELECT question, answer, source, resolved, created_at
+        FROM conversations
+        WHERE session_id = %s
+          AND user_id    = %s
+        ORDER BY created_at ASC
+    """, (session_id, user_id))
+
+    return jsonify(rows)
+
+@app.route("/user/conversations/<session_id>/rename", methods=["PUT"])
+@require_auth
+def rename_conversation(session_id):
+
+    user_id = request.current_user["user_id"]
+
+    data = request.get_json() or {}
+
+    title = data.get("title","").strip()
+
+    if not title:
+        return jsonify({"error":"title required"}),400
+
+    execute("""
+        UPDATE conversations
+        SET custom_title=%s
+        WHERE session_id=%s
+        AND user_id=%s
+    """,(title,session_id,user_id))
+
+    return jsonify({"status":"ok"})
+
+@app.route("/user/conversations/<session_id>", methods=["DELETE"])
+@require_auth
+def delete_conversation(session_id):
+
+    user_id=request.current_user["user_id"]
+
+    execute("""
+
+        DELETE FROM conversations
+        WHERE session_id=%s
+        AND user_id=%s
+
+    """,(session_id,user_id))
+
+    return jsonify({"status":"ok"})
 
 if __name__ == "__main__":
     app.run(debug=True, use_reloader=False, port=5000)
